@@ -51,7 +51,65 @@ local function get_input()
 		pan = Vector3(0,0,0),
 		move = Vector3(0,0,0)
 	}
-	if U.is_pc() then
+	if U.use_touch() then
+		local state = touch_state
+		local touch = U.touch_interface()
+		local has_pan_contact = state.pan_id and touch.has_contact(state.pan_id)
+		local has_move_contact = state.move_id and touch.has_contact(state.move_id)
+
+		-- Remove lifted sticks and handle tapping
+		if state.pan_id and (not has_pan_contact or touch.is_touch_up(state.pan_id)) then 
+			local dt = Application.time_since_launch() - state.pan_t
+			if has_pan_contact then
+				local delta = touch.location(state.pan_id) - state.pan_ref:unbox()
+				if dt < 0.5 and Vector3.length(delta) < 5 then
+					input.jump = true
+				end
+			end
+			state.pan_id = nil
+		end
+		if state.move_id and (not has_move_contact or touch.is_touch_up(state.move_id)) then 
+			local dt = Application.time_since_launch() - state.move_t
+			if has_move_contact then
+				local delta = touch.location(state.move_id) - state.move_ref:unbox()
+				if dt < 0.5 and Vector3.length(delta) < 5 then
+					input.crouch = true
+				end
+			end
+			state.move_id = nil
+		end
+
+		-- Handle new touches
+		local contacts = {touch.contacts()}
+		for _,id in ipairs(contacts) do
+			if touch.is_touch_down(id) then
+				local pos = touch.location(id)
+				local w,h = Gui.resolution()
+				if pos.x > w/2 and pos.y < h/2 and not state.move_id then
+					state.move_id = id
+					state.move_ref = Vector3Box(pos)
+					state.move_t = Application.time_since_launch()
+				elseif pos.x < w/2 and pos.y < h/2 and not state.pan_id then
+					state.pan_id = id
+					state.pan_ref = Vector3Box(pos)
+					state.pan_t = Application.time_since_launch()
+				end
+			end
+		end
+
+		-- Track pan and move
+		if state.move_id then
+			local delta = touch.location(state.move_id) - state.move_ref:unbox()
+			delta = delta / 100
+			input.move = delta
+		end
+		if state.pan_id then
+			local delta = touch.location(state.pan_id) - state.pan_ref:unbox()
+			delta = delta / 50
+			delta.y = -delta.y / 4
+			input.pan = delta
+		end
+	elseif U.is_pc() then
 		input.pan = Mouse.axis(Mouse.axis_index("mouse"))
 		input.move = Vector3 (
 			Keyboard.button(Keyboard.button_index("d")) - Keyboard.button(Keyboard.button_index("a")),
@@ -64,6 +122,13 @@ local function get_input()
 	elseif Sample.show_help then
 		input.pan = Vector3(0,0,0)
 		input.move = Vector3(0,0,0)
+	elseif Application.platform() == "ps3" or Application.platform() == "x360" then
+		input.pan = Pad1.axis(Pad1.axis_index("right")) * 10
+		Vector3.set_y(input.pan, -input.pan.y)
+		input.move = Pad1.axis(Pad1.axis_index("left"))
+		input.jump = Pad1.pressed(Pad1.button_index(U.plat(nil, "cross", "a")))
+		input.crouch = Pad1.pressed(Pad1.button_index(U.plat(nil, "circle", "b")))
+		input.run = Pad1.button(Pad1.button_index(U.plat(nil, "square", "x"))) > 0
 	end
 	return input
 end

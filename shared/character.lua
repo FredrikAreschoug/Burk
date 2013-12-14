@@ -6,15 +6,13 @@ local U = require 'lua/shared/utility'
 local walk_speed = 5.0
 local run_speed = 15.0
 local free_flight_speed = 20.0
-local rotation_speed = 1.0
+local rotation_speed = 4.0
 local jump_velocity = 5.0
 local glue_translation_speed = -2
 local gravity = 9.82
 local camera_offset = 5
-local crouching_camera_offset = 0.8
 local camera_behind = 5.0
 
-local crouch_test_offset = 0.11
 local mover_height = 2
 local mover_radius = 0.5
 local max_climb_height = 0.3
@@ -31,7 +29,6 @@ function M:init(world, camera_unit)
 		self.world:replay():set_unit_record_mode(self.unit, Replay.RECORD_MODE_SCENE_GRAPH)
 	end
 	self.mover = Unit.mover(self.unit)
-	self.crouching = false
 
 	self.camera_mode = "third-person" -- rename to "top-down"
 	self.mover_mode = "normal"
@@ -51,7 +48,6 @@ local function get_input()
 			0
 		)
 		input.jump = Keyboard.pressed(Keyboard.button_index("space"))
-		input.crouch = Keyboard.pressed(Keyboard.button_index("left ctrl"))
 		input.run = Keyboard.button(Keyboard.button_index("left shift")) > 0
 	elseif Sample.show_help then
 		input.pan = Vector3(0,0,0)
@@ -85,12 +81,19 @@ local function compute_translation(self, input, dt)
 		end
 	end
 
+	-- maybe move this
+	local rot = Unit.local_rotation(self.unit, 0)
+	local q = Quaternion(Vector3(0,0,1), -Vector3.x(input.move) * rotation_speed * dt)
+	local res = Quaternion.multiply(q, rot)
+
+	Unit.set_local_rotation(self.unit, 0, res)
+
 	local move = Vector3(0,0,0)
 
 	local pose = Unit.local_pose(self.unit, 0)
 	local pos = Unit.local_position(self.unit, 0)
 	Matrix4x4.set_translation(pose, Vector3(0,0,0))
-	local local_move = input.move*dt * (input.run and run_speed or walk_speed)
+	local local_move = Vector3(0, input.move.y, 0)*dt * (input.run and run_speed or walk_speed)
 	move = Matrix4x4.transform(pose, local_move)
 
 	local slippery = false
@@ -144,18 +147,6 @@ end
 function M:update(dt)
 	local input = get_input()
 
-	if input.crouch then
-		if not self.crouching then
-			self.mover = Unit.set_mover(self.unit, "crouch")
-			self.crouching = true
-		elseif Unit.mover_fits_at(self.unit, "default", Mover.position(self.mover)) then
-			self.mover = Unit.set_mover(self.unit, "default")
-			self.crouching = false
-		else 
-			print "doesn't fit"
-		end
-	end
-
 	if self.mover_mode == "edge-slip" then
 		local cb = function (hit)
 			self.on_edge = not hit
@@ -170,6 +161,7 @@ function M:update(dt)
 --	if self.camera_mode == "free-flight" then
 --		p = compute_free_flight_translation(self, q, input, dt)
 --	else
+
 	p = compute_translation(self, input, dt)
 --	end
 
@@ -184,18 +176,14 @@ function M:update(dt)
 
 	Unit.set_local_position(self.unit, 0, p)
 
+	p.z = 0
+
 --	local cam_pose = Matrix4x4.from_quaternion(q)
 	local cam_pose = Matrix4x4.from_quaternion(Quaternion.look(Vector3(0,0,-1), Vector3(0,1,0)))
 	local cam_p
-	if self.camera_mode == "first-person" then
-		if self.crouching then
-			cam_p = p + Vector3(0,0,crouching_camera_offset)
-		else
-			cam_p = p + Vector3(0,0,camera_offset)
-		end
-	elseif self.camera_mode == "third-person" then
-		cam_p = p + Vector3(0,0,camera_offset) - Matrix4x4.y(cam_pose)*camera_behind
-	end
+
+	cam_p = p + Vector3(0,0,camera_offset) - Matrix4x4.y(cam_pose)*camera_behind
+
 	Matrix4x4.set_translation(cam_pose, cam_p)
 	local camera = Unit.camera(self.camera_unit, "camera")
 	Camera.set_local_pose(camera, self.camera_unit, cam_pose)

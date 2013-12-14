@@ -22,12 +22,11 @@ function Sample.menu()
 end
 
 function init()
-	if Window then
+	if Window then -- how to make cursor visible and confined in window?
 		Window.set_focus()
 		Window.set_mouse_focus(true)
-		if U.use_touch() then
-			Window.set_show_cursor(true)
-		end
+		Window.set_clip_cursor(true)
+		Window.set_show_cursor(true)
 	end
 
 	if custom_init then

@@ -165,22 +165,24 @@ function M:update(dt)
 		Raycast.cast(ray, p, Vector3(0,0,-1), 0.5)
 	end
 
-	local q = compute_rotation(self, input, dt)
+--	local q = compute_rotation(self, input, dt)
 	local p
-	if self.camera_mode == "free-flight" then
-		p = compute_free_flight_translation(self, q, input, dt)
-	else
-		p = compute_translation(self, input, dt)
-	end
+--	if self.camera_mode == "free-flight" then
+--		p = compute_free_flight_translation(self, q, input, dt)
+--	else
+	p = compute_translation(self, input, dt)
+--	end
 
-	local rot_x = Quaternion.rotate(q, Vector3(1,0,0))
-	rot_x.z = 0
-	rot_x = Vector3.normalize(rot_x)
-	local angle = math.atan2(rot_x.y, rot_x.x)
-	local project_q = Quaternion(Vector3(0,0,1), angle)
+--	local rot_x = Quaternion.rotate(q, Vector3(1,0,0))
+--	rot_x.z = 0
+--	rot_x = Vector3.normalize(rot_x)
+--	local angle = math.atan2(rot_x.y, rot_x.x)
+--	local project_q = Quaternion(Vector3(0,0,1), angle)
 
-	local pose = Matrix4x4.from_quaternion_position(project_q,p)
-	Unit.set_local_pose(self.unit, 0, pose)
+--	local pose = Matrix4x4.from_quaternion_position(project_q,p)
+--	Unit.set_local_pose(self.unit, 0, pose)
+
+	Unit.set_local_position(self.unit, 0, p)
 
 --	local cam_pose = Matrix4x4.from_quaternion(q)
 	local cam_pose = Matrix4x4.from_quaternion(Quaternion.look(Vector3(0,0,-1), Vector3(0,1,0)))
@@ -202,8 +204,8 @@ function M:update(dt)
 	tw:set_listener_mode(0, TimpaniWorld.LISTENER_3D)
 	PhysicsWorld.set_observer(Application.main_world():physics_world(), cam_pose)
 
-	local p1 = Matrix4x4.translation(pose) + Vector3(0.1,0,2)
-	local p2 = p1 + Matrix4x4.y(pose)
+--	local p1 = Matrix4x4.translation(pose) + Vector3(0.1,0,2)
+--	local p2 = p1 + Matrix4x4.y(pose)
 	local replay = self.world:replay()
 end
 

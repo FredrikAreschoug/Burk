@@ -25,7 +25,7 @@ function init()
 	if Window then -- how to make cursor visible and confined in window?
 		Window.set_focus()
 		Window.set_mouse_focus(true)
-		Window.set_clip_cursor(true)
+--		Window.set_clip_cursor(true)
 		Window.set_show_cursor(true)
 	end
 
